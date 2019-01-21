@@ -51,3 +51,8 @@ curl -X PUT --data 100 -H "Content-Type: application/json" localhost:8090/game/{
 ```text
 curl -X GET localhost:8090/game/{scoreId}/events/
 ```
+
+### Open Concerns
+1. minor gap between the application start and port capture can lead to one instance not starting.
+2. events API shows all changes made against the aggregate inside its instance. Consolidated events from both the instances when sorted by Time can give exact details of all delta against the aggregate.
+3. Code coverage is not 100%
