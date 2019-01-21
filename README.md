@@ -6,6 +6,10 @@
 2. Player 1 will latch on port 8080 while player 2 will start on port 8090
 3. all changes to the score are stored as events in the event store
 
+### Frameworks used
+1. Axon
+2. Spring
+
 ### Starting the application
 
 ### With Auto Mode
