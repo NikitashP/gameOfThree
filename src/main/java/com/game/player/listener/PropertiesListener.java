@@ -18,8 +18,11 @@ public class PropertiesListener implements ApplicationListener<ApplicationEnviro
 
         if (!isLocalPortInUse(8080)) {
             props.put("player.url", "http://localhost:8090/");
+            props.put("player.id", "player1");
         } else {
             props.put("player.url", "http://localhost:8080/");
+            props.put("player.id", "player2");
+
         }
         environment.getPropertySources().addFirst(new PropertiesPropertySource("custom", props));
 

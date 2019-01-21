@@ -2,14 +2,14 @@ package com.game.player.event;
 
 public class ResetScoreEvent extends BaseEvent<String> {
 
-    private final double updatedValue;
+    private final long updatedValue;
 
-    public ResetScoreEvent(String id, double updatedValue) {
+    public ResetScoreEvent(String id, long updatedValue) {
         super(id);
         this.updatedValue = updatedValue;
     }
 
-    public double getUpdatedValue() {
+    public long getUpdatedValue() {
         return updatedValue;
     }
 }

@@ -2,49 +2,55 @@ package com.game.player;
 
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Properties;
+import java.util.Random;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import com.game.player.controller.GameController;
 import com.game.player.listener.PropertiesListener;
 
 @SpringBootApplication
-public class PlayerApplication {
+public class PlayerApplication implements ApplicationRunner {
+
+    @Autowired
+    private GameController gameController;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PlayerApplication.class);
 
     public static void main(String[] args) {
 
         SpringApplication app = new SpringApplication(PlayerApplication.class);
-        List<String> arguments = Arrays.stream(args).collect(Collectors.toList());
         if (!isLocalPortInUse(8080)) {
 
-            app.setDefaultProperties(Collections.singletonMap("server.port", "8080"));
+            Properties properties = new Properties();
+            properties.put("server.port", "8080");
+            properties.put("spring.application.name", "player1");
+            app.setDefaultProperties(properties);
 
-            MDC.put("playerId", "player1");
             LOGGER.info("Instance started as Player 1");
 
         } else if (!isLocalPortInUse(8090)) {
 
-            app.setDefaultProperties(Collections.singletonMap("server.port", "8090"));
+            Properties properties = new Properties();
+            properties.put("server.port", "8090");
+            properties.put("spring.application.name", "player2");
+            app.setDefaultProperties(properties);
 
-            MDC.put("playerId", "player2");
             LOGGER.info("Instance started as Player 2");
 
         } else {
             throw new IllegalStateException("Only 2 Players can play");
         }
         LOGGER.info("Arguments {}", args);
-
         app.addListeners(new PropertiesListener());
-        app.run(arguments.toArray(new String[arguments.size()]));
+        app.run(args);
 
     }
 
@@ -60,4 +66,16 @@ public class PlayerApplication {
         }
     }
 
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+
+        if (args.getNonOptionArgs().contains("auto")) {
+            LOGGER.info("game started in Auto Mode");
+            final GameController.StartValue startValue = new GameController.StartValue();
+            Random random = new Random();
+            startValue.initialValue = random.nextLong();
+            gameController.startGame(startValue);
+        }
+
+    }
 }

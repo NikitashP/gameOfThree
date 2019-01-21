@@ -9,6 +9,7 @@ import org.axonframework.eventsourcing.EventSourcingHandler;
 import org.axonframework.spring.stereotype.Aggregate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 import com.game.player.command.MakeMoveCommand;
@@ -32,30 +33,37 @@ public class Score implements Serializable {
     @AggregateIdentifier
     private String id;
 
-    private double value;
+    private long value;
 
     public Score() {
 
     }
 
     @CommandHandler
-    public Score(StartGameCommand startGameCommand) {
+    public Score(StartGameCommand startGameCommand, @Autowired AggregateTracker tracker) {
         final String id = startGameCommand.id;
-        final double initialValue = startGameCommand.getInitialValue();
+        final long initialValue = startGameCommand.getInitialValue();
         AggregateLifecycle.apply(new InitializeScoreEvent(id, initialValue));
+        tracker.track(id);
     }
 
     @EventSourcingHandler
     protected void on(InitializeScoreEvent event) {
         this.id = event.id;
         this.value = event.getInitialValue();
+        LOGGER.info("Initialized aggregate {}, with value {}", id, event.getInitialValue());
+
     }
 
     @CommandHandler
     public MakeMoveCommandResponse on(MakeMoveCommand makeMoveCommand) {
         final String id = makeMoveCommand.id;
-        final double updatedValue = makeMoveCommand.getValue();
-        AggregateLifecycle.apply(new ResetScoreEvent(id, updatedValue));
+        final long updatedValue = makeMoveCommand.getValue();
+
+        if (this.value != updatedValue) {
+            AggregateLifecycle.apply(new ResetScoreEvent(id, updatedValue));
+        }
+
         if (isDivisible(updatedValue)) {
             AggregateLifecycle.apply(new AddEvent(id, 0));
         } else if (isDivisible(updatedValue - 1)) {
@@ -79,15 +87,18 @@ public class Score implements Serializable {
             value,
             value + event.getToAdd());
         this.value += event.getToAdd();
-        if (value / DIVISOR == 1) {
-            LOGGER.info("Resulting value is {}, which is divisible by {} with a remainder of 0", value, DIVISOR);
-        }
     }
 
     @EventSourcingHandler
     protected void on(DivideEvent event) {
         this.id = event.id;
+        LOGGER.info(
+            "Divided by {}, to Current Value {}, Resulting value {}",
+            event.getDivisor(),
+            value,
+            value / event.getDivisor());
         this.value = this.value / event.getDivisor();
+
     }
 
     private boolean isDivisible(double value) {
@@ -96,6 +107,11 @@ public class Score implements Serializable {
 
     @EventSourcingHandler
     protected void on(ResetScoreEvent event) {
+        LOGGER.info(
+            "Re-setting value of aggregate {}, to Current Value {},  from Value {}",
+            this.id,
+            event.getUpdatedValue(),
+            this.value);
         this.id = event.id;
         this.value = event.getUpdatedValue();
     }

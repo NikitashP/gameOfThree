@@ -2,14 +2,14 @@ package com.game.player.command;
 
 public class MakeMoveCommand extends BaseCommand<String> {
 
-    private final double value;
+    private final long value;
 
-    public MakeMoveCommand(String scoreId, double value) {
+    public MakeMoveCommand(String scoreId, long value) {
         super(scoreId);
         this.value = value;
     }
 
-    public double getValue() {
+    public long getValue() {
         return value;
     }
 }

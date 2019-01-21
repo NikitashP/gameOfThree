@@ -13,6 +13,7 @@ import org.axonframework.commandhandling.model.AggregateNotFoundException;
 import org.axonframework.eventsourcing.eventstore.EventStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
+import com.game.player.aggregate.AggregateTracker;
 import com.game.player.command.MakeMoveCommand;
 import com.game.player.command.StartGameCommand;
 import com.game.player.dto.MakeMoveCommandResponse;
@@ -40,6 +42,9 @@ public class GameController {
     private final CommandGateway commandGateway;
 
     private final EventStore eventStore;
+
+    @Autowired
+    private AggregateTracker aggregateTracker;
 
     @Value("${player.url}")
     private String playerUrl;
@@ -62,10 +67,12 @@ public class GameController {
     }
 
     @PutMapping(path = "{scoreId}/move")
-    public void move(@RequestBody double value, @PathVariable String scoreId) {
+    public void move(@RequestBody long value, @PathVariable String scoreId)
+            throws ExecutionException,
+            InterruptedException {
 
         if (!aggregateHasAlreadyBeenMirrored(scoreId)) {
-            commandGateway.send(new StartGameCommand(scoreId, value));
+            commandGateway.send(new StartGameCommand(scoreId, value)).get();
         }
 
         commandGateway.send(
@@ -76,10 +83,14 @@ public class GameController {
                 public void onSuccess(
                         CommandMessage<? extends MakeMoveCommand> commandMessage,
                         MakeMoveCommandResponse response) {
-                    if (response.getValue() == 1) {
+                    if (Math.abs(response.getValue()) == 1) {
                         LOGGER.info("GAME OVER !!");
                     } else {
-                        invokeMoveOfOtherPlayer(response);
+                        try {
+                            invokeMoveOfOtherPlayer(response);
+                        } catch (InterruptedException e) {
+                            LOGGER.error("Unable to Make Move with another player", e);
+                        }
                     }
 
                 }
@@ -90,18 +101,22 @@ public class GameController {
                 }
             });
 
+        LOGGER.info("Move completed");
     }
 
     private boolean aggregateHasAlreadyBeenMirrored(String scoreId) {
-        return getEvents(scoreId).size() > 0;
+        return aggregateTracker.contains(scoreId);
     }
 
-    private void invokeMoveOfOtherPlayer(MakeMoveCommandResponse response) {
+    private void invokeMoveOfOtherPlayer(MakeMoveCommandResponse response) throws InterruptedException {
         RestTemplate restTemplate = new RestTemplate();
         try {
+            LOGGER.info("Initiate Move");
             restTemplate.put(playerUrl + "game/" + response.getId() + "/move", response.getValue());
+            LOGGER.info("Move Complete");
         } catch (RuntimeException exception) {
             LOGGER.error("Player not yet available", exception);
+            Thread.sleep(5000);
             invokeMoveOfOtherPlayer(response);
         }
 
@@ -112,9 +127,9 @@ public class GameController {
         return eventStore.readEvents(id).asStream().map(s -> s.getPayload()).collect(Collectors.toList());
     }
 
-    static class StartValue {
+    public static class StartValue {
 
-        public double initialValue = 0;
+        public long initialValue = 0;
     }
 
     @ExceptionHandler(AggregateNotFoundException.class)
